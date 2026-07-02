@@ -1,0 +1,13 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = { Role = ["none"] }
+  force = false
+
+# Scheduled functions are declared via `exports.config = { schedule: ... }`
+# inside scheduled-check.js — Netlify picks this up automatically on deploy.

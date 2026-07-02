@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es-EC">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CineWatch EC</title>
+<meta name="description" content="Track Ecuador movie releases and never miss cheap-day pricing.">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CineWatch">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="theme-color" content="#15120F">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15120F;
+    --bg-raised:#1F1B16;
+    --bg-stub:#19150F;
+    --cream:#EDE6D6;
+    --muted:#9C9384;
+    --gold:#F2B84B;
+    --red:#8B2635;
+    --jade:#4A9B8E;
+    --hairline:#2E2820;
+    --radius:14px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--cream);}
+  body{
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    min-height:100dvh;
+    padding-bottom:90px;
+    overflow-x:hidden;
+  }
+  ::selection{background:var(--gold); color:var(--bg);}
+
+  /* ---------- Marquee header ---------- */
+  header.marquee{
+    position:sticky; top:0; z-index:20;
+    background:var(--bg);
+    border-bottom:1px solid var(--hairline);
+    padding:env(safe-area-inset-top, 14px) 18px 0 18px;
+  }
+  .marquee-bulbs{
+    display:flex; gap:6px; padding:10px 0 8px 0;
+  }
+  .bulb{width:5px; height:5px; border-radius:50%; background:var(--hairline);}
+  .bulb.lit{background:var(--gold); box-shadow:0 0 6px var(--gold);}
+  .marquee-row{display:flex; align-items:baseline; justify-content:space-between; padding-bottom:12px;}
+  h1.brand{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:30px;
+    letter-spacing:1px;
+    margin:0;
+    color:var(--cream);
+  }
+  h1.brand span{color:var(--gold);}
+  .marquee-sub{font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; margin-top:-2px;}
+  .icon-btn{
+    background:none; border:1px solid var(--hairline); color:var(--cream);
+    width:38px; height:38px; border-radius:50%; font-size:16px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+
+  /* ---------- Tabs ---------- */
+  nav.tabs{
+    display:flex; gap:0; padding:0 18px; margin-top:4px;
+  }
+  nav.tabs button{
+    flex:1; background:none; border:none; color:var(--muted);
+    font-family:'Inter'; font-weight:600; font-size:13px;
+    padding:10px 4px 12px 4px; cursor:pointer; position:relative;
+    letter-spacing:.02em;
+  }
+  nav.tabs button.active{color:var(--cream);}
+  nav.tabs button.active::after{
+    content:''; position:absolute; bottom:0; left:8px; right:8px; height:2px; background:var(--gold);
+  }
+  .badge-count{
+    display:inline-block; min-width:16px; padding:0 4px; height:16px; line-height:16px;
+    background:var(--jade); color:var(--bg); font-size:10px; font-weight:700;
+    border-radius:8px; margin-left:5px; font-family:'IBM Plex Mono';
+  }
+
+  main{padding:16px 18px 0 18px; max-width:560px; margin:0 auto;}
+
+  /* ---------- Setup card ---------- */
+  .setup-card{
+    background:var(--bg-raised); border:1px dashed var(--hairline); border-radius:var(--radius);
+    padding:20px; margin-bottom:16px;
+  }
+  .setup-card h2{font-family:'Bebas Neue'; font-size:20px; letter-spacing:.5px; margin:0 0 6px 0; color:var(--gold);}
+  .setup-card p{font-size:13px; color:var(--muted); line-height:1.5; margin:0 0 12px 0;}
+  .setup-card a{color:var(--gold);}
+  input.text-input{
+    width:100%; background:var(--bg); border:1px solid var(--hairline); color:var(--cream);
+    padding:11px 12px; border-radius:8px; font-size:14px; font-family:'IBM Plex Mono'; margin-bottom:10px;
+  }
+  input.text-input:focus{outline:none; border-color:var(--gold);}
+  button.primary{
+    width:100%; background:var(--gold); color:var(--bg); border:none; border-radius:8px;
+    padding:12px; font-weight:700; font-size:14px; cursor:pointer; font-family:'Inter';
+  }
+  button.primary:disabled{opacity:.5;}
+  button.ghost{
+    width:100%; background:none; color:var(--muted); border:1px solid var(--hairline); border-radius:8px;
+    padding:11px; font-weight:600; font-size:13px; cursor:pointer; margin-top:8px; font-family:'Inter';
+  }
+
+  /* ---------- Section labels ---------- */
+  .section-label{
+    display:flex; align-items:center; gap:8px;
+    font-family:'IBM Plex Mono'; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); margin:18px 0 10px 0;
+  }
+  .section-label::after{content:''; flex:1; height:1px; background:var(--hairline);}
+  .empty-state{
+    text-align:center; padding:36px 12px; color:var(--muted); font-size:13px; line-height:1.6;
+  }
+  .empty-state strong{display:block; color:var(--cream); font-family:'Bebas Neue'; font-size:18px; letter-spacing:.3px; margin-bottom:6px; font-weight:400;}
+
+  /* ---------- Discover card ---------- */
+  .movie-card{
+    display:flex; gap:0; background:var(--bg-raised); border-radius:var(--radius);
+    overflow:hidden; margin-bottom:14px; border:1px solid var(--hairline);
+  }
+  .poster{width:96px; min-width:96px; height:144px; background:var(--hairline) center/cover no-repeat;}
+  .movie-info{flex:1; padding:12px 12px 12px 14px; display:flex; flex-direction:column; min-width:0;}
+  .movie-title{font-family:'Bebas Neue'; font-size:18px; letter-spacing:.3px; line-height:1.15; margin:0 0 4px 0;}
+  .movie-date{font-family:'IBM Plex Mono'; font-size:11px; color:var(--gold); margin-bottom:6px;}
+  .movie-overview{font-size:12px; color:var(--muted); line-height:1.45; margin:0 0 10px 0;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .card-actions{display:flex; gap:6px; margin-top:auto;}
+  .pick-btn{
+    flex:1; border:1px solid var(--hairline); background:var(--bg); color:var(--cream);
+    font-size:11px; font-weight:600; padding:8px 4px; border-radius:7px; cursor:pointer;
+    font-family:'Inter'; text-align:center; line-height:1.3;
+  }
+  .pick-btn.release-pick:active, .pick-btn.release-pick.chosen{background:var(--red); border-color:var(--red); color:var(--cream);}
+  .pick-btn.cheap-pick:active, .pick-btn.cheap-pick.chosen{background:var(--jade); border-color:var(--jade); color:var(--bg);}
+
+  /* ---------- Ticket stub (watchlist) ---------- */
+  .stub{
+    display:flex; background:var(--bg-raised); border-radius:var(--radius); overflow:hidden;
+    margin-bottom:14px; border:1px solid var(--hairline); position:relative;
+  }
+  .stub-poster{width:78px; min-width:78px; background:var(--hairline) center/cover no-repeat;}
+  .stub-body{flex:1; padding:12px 10px 12px 14px; min-width:0;}
+  .stub-title{font-family:'Bebas Neue'; font-size:17px; letter-spacing:.3px; margin:0 0 2px 0;}
+  .stub-meta{font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted);}
+  .stub-tear{
+    width:0; border-left:2px dashed var(--hairline); position:relative;
+  }
+  .stub-tear::before, .stub-tear::after{
+    content:''; position:absolute; left:-7px; width:14px; height:14px; border-radius:50%; background:var(--bg);
+  }
+  .stub-tear::before{top:-7px;} .stub-tear::after{bottom:-7px;}
+  .stub-status{
+    width:84px; min-width:84px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:8px 6px; gap:4px; text-align:center;
+  }
+  .status-pill{
+    font-family:'IBM Plex Mono'; font-size:9.5px; font-weight:600; letter-spacing:.04em;
+    padding:3px 7px; border-radius:20px; text-transform:uppercase;
+  }
+  .status-pill.ready{background:var(--jade); color:var(--bg);}
+  .status-pill.waiting{background:none; border:1px solid var(--hairline); color:var(--muted);}
+  .status-pill.today{background:var(--red); color:var(--cream);}
+  .status-days{font-family:'IBM Plex Mono'; font-size:17px; font-weight:600; color:var(--cream);}
+  .status-days small{font-size:9px; color:var(--muted); display:block; font-weight:500;}
+  .stub-remove{position:absolute; top:8px; right:8px; background:none; border:none; color:var(--muted); font-size:14px; cursor:pointer; padding:4px;}
+
+  /* ---------- Toast ---------- */
+  #toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--cream); color:var(--bg); padding:11px 18px; border-radius:30px;
+    font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:.25s; z-index:50;
+    white-space:nowrap;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* ---------- Install banner ---------- */
+  .install-banner{
+    background:var(--bg-raised); border:1px solid var(--gold); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:16px; display:flex; align-items:center; gap:12px;
+  }
+  .install-banner p{margin:0; font-size:12.5px; line-height:1.5; color:var(--cream); flex:1;}
+  .install-banner strong{color:var(--gold);}
+  .install-banner button{background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer;}
+
+  @media (min-width:600px){
+    main{padding-top:20px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="marquee">
+  <div class="marquee-bulbs" id="bulbs"></div>
+  <div class="marquee-row">
+    <div>
+      <h1 class="brand">Cine<span>Watch</span> EC</h1>
+      <div class="marquee-sub">Quito &middot; cheap day en 2 semanas</div>
+    </div>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings">&#9881;</button>
+  </div>
+  <nav class="tabs">
+    <button class="active" data-tab="discover">Discover</button>
+    <button data-tab="mylist">My List <span class="badge-count" id="listCount" style="display:none;"></span></button>
+  </nav>
+</header>
+
+<main>
+  <div id="setupView" style="display:none;">
+    <div class="setup-card">
+      <h2>One-time setup</h2>
+      <p>CineWatch pulls confirmed Ecuador release dates from <a href="https://www.themoviedb.org/" target="_blank">TMDB</a>, a free movie database. Get a free API key, then paste it here.</p>
+      <p>1. Create a free account at themoviedb.org<br>
+         2. Go to Settings &rarr; API &rarr; Request an API key (choose "Developer")<br>
+         3. Paste your <strong>API Read Access Token</strong> below</p>
+      <input class="text-input" id="apiKeyInput" placeholder="TMDB API Read Access Token" autocomplete="off">
+      <button class="primary" id="saveKeyBtn">Save & load movies</button>
+    </div>
+  </div>
+
+  <div id="installBanner" class="install-banner" style="display:none;">
+    <p><strong>Install CineWatch</strong> to your Home Screen to get real notifications on this iPhone &mdash; tap Share &rarr; Add to Home Screen.</p>
+    <button id="dismissInstall" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <div id="pushBanner" class="install-banner" style="display:none; border-color: var(--jade);">
+    <p><strong>Turn on notifications</strong> so CineWatch can tell you the moment a movie releases or hits cheap-day pricing.</p>
+    <button id="enablePushBtn" class="primary" style="width:auto; padding:9px 14px; font-size:12px;">Enable</button>
+  </div>
+
+  <div id="discoverView"></div>
+  <div id="mylistView" style="display:none;"></div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+/* ============== Constants ============== */
+const TMDB_IMG = 'https://image.tmdb.org/t/p/w200';
+const CHEAP_WAIT_DAYS = 14;
+const STORAGE_KEYS = { token:'cw_tmdb_token', list:'cw_watchlist', installDismissed:'cw_install_dismissed' };
+
+/* ============== State ============== */
+let watchlist = JSON.parse(localStorage.getItem(STORAGE_KEYS.list) || '[]');
+let discoverMovies = [];
+let activeTab = 'discover';
+
+/* ============== Helpers ============== */
+function saveWatchlist(){
+  localStorage.setItem(STORAGE_KEYS.list, JSON.stringify(watchlist));
+  syncToServer();
+  refreshPushBanner();
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastT);
+  window._toastT = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function daysBetween(a,b){ return Math.round((b-a)/86400000); }
+function fmtDate(iso){
+  const d = new Date(iso+'T00:00:00');
+  return d.toLocaleDateString('es-EC', {day:'numeric', month:'short'});
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+/* ============== Marquee bulbs (decorative) ============== */
+(function bulbs(){
+  const el = document.getElementById('bulbs');
+  for(let i=0;i<14;i++){
+    const b = document.createElement('div');
+    b.className = 'bulb' + (i%3===0 ? ' lit':'');
+    el.appendChild(b);
+  }
+})();
+
+/* ============== TMDB ============== */
+function getToken(){ return localStorage.getItem(STORAGE_KEYS.token); }
+
+async function fetchDiscover(){
+  const token = getToken();
+  if(!token){ showSetup(); return; }
+  hideSetup();
+  const today = todayISO();
+  const future = new Date(Date.now() + 1000*60*60*24*75).toISOString().slice(0,10);
+  const past = new Date(Date.now() - 1000*60*60*24*30).toISOString().slice(0,10);
+  const url = `https://api.themoviedb.org/3/discover/movie?region=EC&with_release_type=2|3&release_date.gte=${past}&release_date.lte=${future}&sort_by=primary_release_date.asc&language=es-EC&include_adult=false`;
+  try{
+    const res = await fetch(url, { headers:{ Authorization:`Bearer ${token}`, accept:'application/json' }});
+    if(!res.ok){
+      if(res.status===401){ toast('Invalid TMDB key — check it and try again'); showSetup(); return; }
+      throw new Error('TMDB error '+res.status);
+    }
+    const data = await res.json();
+    discoverMovies = (data.results||[]).filter(m=>m.poster_path);
+    renderDiscover();
+  }catch(err){
+    toast('Could not load movies — check your connection');
+    console.error(err);
+  }
+}
+
+/* ============== Rendering: Discover ============== */
+function renderDiscover(){
+  const el = document.getElementById('discoverView');
+  if(!discoverMovies.length){
+    el.innerHTML = `<div class="empty-state"><strong>No confirmed releases found</strong>Try again later, or check your TMDB key in settings.</div>`;
+    return;
+  }
+  el.innerHTML = '<div class="section-label">EC release dates</div>' + discoverMovies.map(m=>{
+    const existing = watchlist.find(w=>w.id===m.id);
+    return `
+    <div class="movie-card">
+      <div class="poster" style="background-image:url('${TMDB_IMG}${m.poster_path}')"></div>
+      <div class="movie-info">
+        <div>
+          <div class="movie-title">${m.title}</div>
+          <div class="movie-date">${fmtDate(m.release_date)}</div>
+          <p class="movie-overview">${m.overview || 'No synopsis available.'}</p>
+        </div>
+        <div class="card-actions">
+          <button class="pick-btn release-pick ${existing?.mode==='release'?'chosen':''}" onclick="addToList(${m.id}, 'release')">Watch on<br>release</button>
+          <button class="pick-btn cheap-pick ${existing?.mode==='cheap'?'chosen':''}" onclick="addToList(${m.id}, 'cheap')">Wait for<br>cheap day</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.addToList = function(tmdbId, mode){
+  const movie = discoverMovies.find(m=>m.id===tmdbId);
+  if(!movie) return;
+  const i = watchlist.findIndex(w=>w.id===tmdbId);
+  const entry = {
+    id: movie.id, title: movie.title, poster_path: movie.poster_path,
+    release_date: movie.release_date, mode, addedAt: Date.now(), watched:false
+  };
+  if(i>=0) watchlist[i] = entry; else watchlist.push(entry);
+  saveWatchlist();
+  renderDiscover();
+  renderMyList();
+  toast(mode==='release' ? `Added — you'll get notified on release day` : `Added — you'll get notified when it's cheap-day ready`);
+};
+
+/* ============== Rendering: My List ============== */
+function renderMyList(){
+  const el = document.getElementById('mylistView');
+  const countEl = document.getElementById('listCount');
+  countEl.style.display = watchlist.length ? 'inline-block' : 'none';
+  countEl.textContent = watchlist.length;
+
+  if(!watchlist.length){
+    el.innerHTML = `<div class="empty-state"><strong>Your list is empty</strong>Go to Discover and pick movies you want to track.</div>`;
+    return;
+  }
+
+  const today = new Date(todayISO()+'T00:00:00');
+  const items = watchlist.map(w=>{
+    const release = new Date(w.release_date+'T00:00:00');
+    const cheapDate = new Date(release.getTime() + CHEAP_WAIT_DAYS*86400000);
+    let status, days, pillClass, sortKey;
+    if(w.mode==='release'){
+      days = daysBetween(today, release);
+      if(days===0){ status='Out today'; pillClass='today'; }
+      else if(days<0){ status='Released'; pillClass='waiting'; }
+      else { status='Releasing'; pillClass='waiting'; }
+      sortKey = release.getTime();
+    } else {
+      days = daysBetween(today, cheapDate);
+      if(days<=0){ status='Cheap day ready'; pillClass='ready'; }
+      else { status='Wait for cheap'; pillClass='waiting'; }
+      sortKey = cheapDate.getTime();
+    }
+    return { w, status, days, pillClass, sortKey };
+  }).sort((a,b)=>a.sortKey-b.sortKey);
+
+  const ready = items.filter(i=>i.pillClass==='ready' || i.pillClass==='today');
+  const waiting = items.filter(i=>!(i.pillClass==='ready' || i.pillClass==='today'));
+
+  let html = '';
+  if(ready.length){
+    html += '<div class="section-label">Ready now</div>' + ready.map(renderStub).join('');
+  }
+  if(waiting.length){
+    html += '<div class="section-label">Tracking</div>' + waiting.map(renderStub).join('');
+  }
+  el.innerHTML = html;
+}
+
+function renderStub(item){
+  const { w, status, days, pillClass } = item;
+  const dayLabel = days===0 ? 'today' : days===1 ? 'day' : 'days';
+  const daysDisplay = days>0 ? `<div class="status-days">${days}<small>${dayLabel}</small></div>` : '';
+  return `
+  <div class="stub">
+    <div class="stub-poster" style="background-image:url('${TMDB_IMG}${w.poster_path}')"></div>
+    <div class="stub-body">
+      <div class="stub-title">${w.title}</div>
+      <div class="stub-meta">${w.mode==='release' ? 'On release' : 'Cheap day'} &middot; ${fmtDate(w.release_date)}</div>
+    </div>
+    <div class="stub-tear"></div>
+    <div class="stub-status">
+      <span class="status-pill ${pillClass}">${status}</span>
+      ${daysDisplay}
+    </div>
+    <button class="stub-remove" onclick="removeFromList(${w.id})" aria-label="Remove">&times;</button>
+  </div>`;
+}
+
+window.removeFromList = function(id){
+  watchlist = watchlist.filter(w=>w.id!==id);
+  saveWatchlist();
+  renderMyList();
+  renderDiscover();
+  toast('Removed from your list');
+};
+
+/* ============== Tabs ============== */
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    activeTab = btn.dataset.tab;
+    document.getElementById('discoverView').style.display = activeTab==='discover' ? '' : 'none';
+    document.getElementById('mylistView').style.display = activeTab==='mylist' ? '' : 'none';
+  });
+});
+
+/* ============== Setup view ============== */
+function showSetup(){ document.getElementById('setupView').style.display=''; }
+function hideSetup(){ document.getElementById('setupView').style.display='none'; }
+
+document.getElementById('saveKeyBtn').addEventListener('click', ()=>{
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if(!val){ toast('Paste your TMDB token first'); return; }
+  localStorage.setItem(STORAGE_KEYS.token, val);
+  fetchDiscover();
+});
+document.getElementById('settingsBtn').addEventListener('click', ()=>{
+  document.getElementById('apiKeyInput').value = getToken() || '';
+  showSetup();
+  window.scrollTo({top:0, behavior:'smooth'});
+});
+
+/* ============== iOS install banner ============== */
+function isIos(){ return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+function isStandalone(){ return window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches; }
+
+if(isIos() && !isStandalone() && !localStorage.getItem(STORAGE_KEYS.installDismissed)){
+  document.getElementById('installBanner').style.display = 'flex';
+}
+document.getElementById('dismissInstall').addEventListener('click', ()=>{
+  localStorage.setItem(STORAGE_KEYS.installDismissed, '1');
+  document.getElementById('installBanner').style.display = 'none';
+});
+
+/* ============== Push notifications ============== */
+// VAPID public key — fill in after running `npx web-push generate-vapid-keys` (see README)
+const VAPID_PUBLIC_KEY = 'BBCO1lmdsKc4vFu6xHRWKXmUveUp7-nDcSxIkNadFhBAXxbXecRqhdegwF0uEognBsMJCM2low0SkehlO_tt5j0';
+
+function urlBase64ToUint8Array(base64String){
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+
+async function enablePush(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)){
+    toast('Push not supported in this browser');
+    return;
+  }
+  if(isIos() && !isStandalone()){
+    toast('Install to Home Screen first, then enable notifications');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if(perm !== 'granted'){ toast('Notifications permission denied'); return; }
+
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if(!sub){
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+  }
+  await syncToServer(sub);
+  toast('Notifications enabled');
+}
+
+async function syncToServer(subscriptionOverride){
+  try{
+    let subscription = subscriptionOverride;
+    if(!subscription && 'serviceWorker' in navigator){
+      const reg = await navigator.serviceWorker.getRegistration();
+      if(reg) subscription = await reg.pushManager.getSubscription();
+    }
+    if(!subscription) return; // not subscribed yet — nothing to sync
+    await fetch('/.netlify/functions/save-state', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ subscription, watchlist, cheapWaitDays: CHEAP_WAIT_DAYS })
+    });
+  }catch(err){ console.warn('Sync to server failed', err); }
+}
+
+// Push enable banner
+function refreshPushBanner(){
+  const banner = document.getElementById('pushBanner');
+  if(!('Notification' in window) || Notification.permission === 'granted'){
+    banner.style.display = 'none';
+    return;
+  }
+  if(isIos() && !isStandalone()){
+    banner.style.display = 'none'; // wait until installed
+    return;
+  }
+  banner.style.display = watchlist.length ? 'flex' : 'none';
+}
+document.getElementById('enablePushBtn').addEventListener('click', async ()=>{
+  await enablePush();
+  refreshPushBanner();
+});
+</script>
+
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(err=>console.warn('SW registration failed', err));
+  });
+}
+fetchDiscover();
+renderMyList();
+refreshPushBanner();
+</script>
+</body>
+</html>
