@@ -291,8 +291,7 @@ async function fetchDiscover(){
   const token = getToken();
   if(!token){ showSetup(); return; }
   hideSetup();
-  const today = todayISO();
-  const future = new Date(Date.now() + 1000*60*60*24*75).toISOString().slice(0,10);
+  const future = new Date(Date.now() + 1000*60*60*24*120).toISOString().slice(0,10);
   const past = new Date(Date.now() - 1000*60*60*24*30).toISOString().slice(0,10);
   const url = `https://api.themoviedb.org/3/discover/movie?region=EC&with_release_type=2|3&release_date.gte=${past}&release_date.lte=${future}&sort_by=primary_release_date.asc&language=es-EC&include_adult=false`;
   try{
@@ -302,12 +301,45 @@ async function fetchDiscover(){
       throw new Error('TMDB error '+res.status);
     }
     const data = await res.json();
-    discoverMovies = (data.results||[]).filter(m=>m.poster_path);
+    const candidates = (data.results||[]).filter(m=>m.poster_path);
+    discoverMovies = await enrichWithEcuadorDates(candidates, token);
+    discoverMovies.sort((a,b)=> a.release_date.localeCompare(b.release_date));
     renderDiscover();
   }catch(err){
     toast('Could not load movies — check your connection');
     console.error(err);
   }
+}
+
+// TMDB's /discover/movie returns a single flat release_date per movie, but a
+// title can have multiple Ecuador theatrical entries (e.g. a festival
+// screening plus a later general release) — the flat field isn't reliably
+// the current one. Fetch each movie's real per-country dates and pick the
+// most relevant EC theatrical entry: the latest one that's already happened,
+// or if none has happened yet, the nearest upcoming one.
+async function enrichWithEcuadorDates(movies, token){
+  const todayMs = new Date(todayISO()+'T00:00:00').getTime();
+  return Promise.all(movies.map(async (m)=>{
+    try{
+      const res = await fetch(`https://api.themoviedb.org/3/movie/${m.id}/release_dates`, {
+        headers:{ Authorization:`Bearer ${token}`, accept:'application/json' }
+      });
+      if(!res.ok) return m;
+      const data = await res.json();
+      const ecEntry = (data.results||[]).find(r=>r.iso_3166_1==='EC');
+      if(!ecEntry) return m;
+      const theatrical = ecEntry.release_dates
+        .filter(rd=>rd.type===2 || rd.type===3)
+        .map(rd=>rd.release_date.slice(0,10));
+      if(!theatrical.length) return m;
+      const past = theatrical.filter(d=> new Date(d+'T00:00:00').getTime() <= todayMs).sort();
+      const future = theatrical.filter(d=> new Date(d+'T00:00:00').getTime() > todayMs).sort();
+      const bestDate = past.length ? past[past.length-1] : future[0];
+      return { ...m, release_date: bestDate };
+    }catch(e){
+      return m;
+    }
+  }));
 }
 
 /* ============== Rendering: Discover ============== */
