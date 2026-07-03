@@ -29,7 +29,8 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: 'Missing subscription or watchlist' };
   }
 
-  const store = getStore('cinewatch-state', {
+  const store = getStore({
+    name: 'cinewatch-state',
     siteID: process.env.NETLIFY_BLOBS_SITE_ID,
     token: process.env.NETLIFY_BLOBS_TOKEN
   });
