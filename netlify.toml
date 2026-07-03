@@ -6,7 +6,6 @@
   from = "/*"
   to = "/index.html"
   status = 200
-  conditions = { Role = ["none"] }
   force = false
 
 # Scheduled functions are declared via `exports.config = { schedule: ... }`
