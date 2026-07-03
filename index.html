@@ -218,7 +218,7 @@
   <div id="setupView" style="display:none;">
     <div class="setup-card">
       <h2>One-time setup</h2>
-      <p>CineWatch pulls confirmed Ecuador release dates from <a href="https://www.themoviedb.org/" target="_blank">TMDB</a>, a free movie database. Get a free API key, then paste it here.</p>
+      <p>CineWatch pulls US theatrical release dates from <a href="https://www.themoviedb.org/" target="_blank">TMDB</a>, a free movie database, as an estimate for when a movie is likely to hit Ecuador — TMDB's Ecuador-specific data is too sparse to browse on its own. Get a free API key, then paste it here.</p>
       <p>1. Create a free account at themoviedb.org<br>
          2. Go to Settings &rarr; API &rarr; Request an API key (choose "Developer")<br>
          3. Paste your <strong>API Read Access Token</strong> below</p>
@@ -293,7 +293,12 @@ async function fetchDiscover(){
   hideSetup();
   const future = new Date(Date.now() + 1000*60*60*24*120).toISOString().slice(0,10);
   const past = new Date(Date.now() - 1000*60*60*24*30).toISOString().slice(0,10);
-  const url = `https://api.themoviedb.org/3/discover/movie?region=EC&with_release_type=2|3&release_date.gte=${past}&release_date.lte=${future}&sort_by=primary_release_date.asc&language=es-EC&include_adult=false`;
+  // Ecuador-specific theatrical data on TMDB is too sparse to browse (often
+  // just a couple of confirmed titles at a time). Using US release dates
+  // instead gives a much bigger, more useful feed — but these are estimates,
+  // not confirmed Ecuador showtimes: EC release can lag US by anywhere from
+  // days to months, and some titles never get local distribution at all.
+  const url = `https://api.themoviedb.org/3/discover/movie?region=US&with_release_type=2|3&release_date.gte=${past}&release_date.lte=${future}&sort_by=popularity.desc&language=es-EC&include_adult=false`;
   try{
     const res = await fetch(url, { headers:{ Authorization:`Bearer ${token}`, accept:'application/json' }});
     if(!res.ok){
@@ -302,7 +307,7 @@ async function fetchDiscover(){
     }
     const data = await res.json();
     const candidates = (data.results||[]).filter(m=>m.poster_path);
-    discoverMovies = await enrichWithEcuadorDates(candidates, token);
+    discoverMovies = await enrichWithReleaseDates(candidates, token, 'US');
     discoverMovies.sort((a,b)=> a.release_date.localeCompare(b.release_date));
     renderDiscover();
   }catch(err){
@@ -312,12 +317,12 @@ async function fetchDiscover(){
 }
 
 // TMDB's /discover/movie returns a single flat release_date per movie, but a
-// title can have multiple Ecuador theatrical entries (e.g. a festival
+// title can have multiple entries for the same country (e.g. a festival
 // screening plus a later general release) — the flat field isn't reliably
 // the current one. Fetch each movie's real per-country dates and pick the
-// most relevant EC theatrical entry: the latest one that's already happened,
+// most relevant theatrical entry: the latest one that's already happened,
 // or if none has happened yet, the nearest upcoming one.
-async function enrichWithEcuadorDates(movies, token){
+async function enrichWithReleaseDates(movies, token, countryCode){
   const todayMs = new Date(todayISO()+'T00:00:00').getTime();
   return Promise.all(movies.map(async (m)=>{
     try{
@@ -326,9 +331,9 @@ async function enrichWithEcuadorDates(movies, token){
       });
       if(!res.ok) return m;
       const data = await res.json();
-      const ecEntry = (data.results||[]).find(r=>r.iso_3166_1==='EC');
-      if(!ecEntry) return m;
-      const theatrical = ecEntry.release_dates
+      const countryEntry = (data.results||[]).find(r=>r.iso_3166_1===countryCode);
+      if(!countryEntry) return m;
+      const theatrical = countryEntry.release_dates
         .filter(rd=>rd.type===2 || rd.type===3)
         .map(rd=>rd.release_date.slice(0,10));
       if(!theatrical.length) return m;
@@ -346,10 +351,10 @@ async function enrichWithEcuadorDates(movies, token){
 function renderDiscover(){
   const el = document.getElementById('discoverView');
   if(!discoverMovies.length){
-    el.innerHTML = `<div class="empty-state"><strong>No confirmed releases found</strong>Try again later, or check your TMDB key in settings.</div>`;
+    el.innerHTML = `<div class="empty-state"><strong>No releases found</strong>Try again later, or check your TMDB key in settings.</div>`;
     return;
   }
-  el.innerHTML = '<div class="section-label">EC release dates</div>' + discoverMovies.map(m=>{
+  el.innerHTML = '<div class="section-label">US release dates &middot; estimate for EC</div>' + discoverMovies.map(m=>{
     const existing = watchlist.find(w=>w.id===m.id);
     return `
     <div class="movie-card">

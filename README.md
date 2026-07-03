@@ -1,7 +1,8 @@
 # CineWatch EC
 
-Track confirmed Ecuador movie releases, mark each one "watch on release" or "wait for cheap day,"
-and get real push notifications (including on iOS) when it's time to go.
+Track upcoming movie releases (US theatrical dates, used as an estimate for Ecuador — TMDB's
+Ecuador-specific data is too sparse to browse on its own), mark each one "watch on release" or
+"wait for cheap day," and get real push notifications (including on iOS) when it's time to go.
 
 ## What's already built
 
