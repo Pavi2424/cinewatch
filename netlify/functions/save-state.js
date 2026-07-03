@@ -29,7 +29,10 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: 'Missing subscription or watchlist' };
   }
 
-  const store = getStore('cinewatch-state');
+  const store = getStore('cinewatch-state', {
+    siteID: process.env.NETLIFY_BLOBS_SITE_ID,
+    token: process.env.NETLIFY_BLOBS_TOKEN
+  });
 
   // Preserve notification history so we don't re-notify for the same event.
   const existingRaw = await store.get(USER_KEY, { type: 'json' });

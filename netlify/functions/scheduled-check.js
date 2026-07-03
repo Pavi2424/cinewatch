@@ -21,7 +21,10 @@ function daysBetween(a, b) {
 }
 
 exports.handler = async () => {
-  const store = getStore('cinewatch-state');
+  const store = getStore('cinewatch-state', {
+    siteID: process.env.NETLIFY_BLOBS_SITE_ID,
+    token: process.env.NETLIFY_BLOBS_TOKEN
+  });
   const state = await store.get(USER_KEY, { type: 'json' });
 
   if (!state || !state.subscription || !state.watchlist) {
