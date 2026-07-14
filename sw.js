@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cinewatch-v4';
+const CACHE_NAME = 'cinewatch-v5';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', (event) => {

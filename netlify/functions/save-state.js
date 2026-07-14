@@ -24,7 +24,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: 'Invalid JSON' };
   }
 
-  const { subscription, watchlist, cheapWaitDays } = payload;
+  const { subscription, watchlist, cheapWaitDays, releaseNotifyLead, cheapNotifyLead, tmdbToken } = payload;
   if (!subscription || !Array.isArray(watchlist)) {
     return { statusCode: 400, body: 'Missing subscription or watchlist' };
   }
@@ -42,7 +42,13 @@ exports.handler = async (event) => {
   await store.setJSON(USER_KEY, {
     subscription,
     watchlist,
-    cheapWaitDays: cheapWaitDays || 14,
+    cheapWaitDays: cheapWaitDays || 7,
+    releaseNotifyLead: Number.isFinite(releaseNotifyLead) ? releaseNotifyLead : 0,
+    cheapNotifyLead: Number.isFinite(cheapNotifyLead) ? cheapNotifyLead : 0,
+    // Read-only TMDB token, stored so the daily job can re-check "notify me
+    // when the date is announced" movies against TMDB. Keep the previous one
+    // if a given sync didn't include it.
+    tmdbToken: tmdbToken || (existingRaw && existingRaw.tmdbToken) || null,
     notified, // { [movieId-eventType]: true }
     updatedAt: new Date().toISOString()
   });

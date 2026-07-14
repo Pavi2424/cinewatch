@@ -32,7 +32,14 @@ exports.handler = async () => {
     return { statusCode: 200, body: 'No state to check yet' };
   }
 
-  const { subscription, watchlist, cheapWaitDays = 14 } = state;
+  const {
+    subscription,
+    watchlist,
+    cheapWaitDays = 7,
+    releaseNotifyLead = 0, // notify this many days BEFORE the release date
+    cheapNotifyLead = 0,   // notify this many days BEFORE cheap day
+    tmdbToken,
+  } = state;
   const notified = state.notified || {};
   const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00');
 
@@ -40,15 +47,21 @@ exports.handler = async () => {
 
   for (const movie of watchlist) {
     if (movie.watched) continue;
+    if (movie.mode !== 'release' && movie.mode !== 'cheap') continue; // 'announce' handled below
     const release = new Date(movie.release_date + 'T00:00:00');
 
     if (movie.mode === 'release') {
       const key = `${movie.id}-release`;
-      if (daysBetween(today, release) <= 0 && !notified[key]) {
+      // daysBetween(today, release) counts down to release; fire once it's within
+      // the user's lead time (0 = on release day).
+      const daysUntil = daysBetween(today, release);
+      if (daysUntil <= releaseNotifyLead && !notified[key]) {
         toSend.push({
           key,
-          title: 'In theaters today 🎬',
-          body: `${movie.title} just released in Ecuador.`,
+          title: daysUntil > 0 ? 'Releasing soon 🎬' : 'In theaters today 🎬',
+          body: daysUntil > 0
+            ? `${movie.title} releases in ${daysUntil} day${daysUntil === 1 ? '' : 's'}.`
+            : `${movie.title} just released in Ecuador.`,
         });
       }
     }
@@ -56,14 +69,58 @@ exports.handler = async () => {
     if (movie.mode === 'cheap') {
       const cheapDate = new Date(release.getTime() + cheapWaitDays * 86400000);
       const key = `${movie.id}-cheap`;
-      if (daysBetween(today, cheapDate) <= 0 && !notified[key]) {
+      const daysUntil = daysBetween(today, cheapDate);
+      if (daysUntil <= cheapNotifyLead && !notified[key]) {
         toSend.push({
           key,
           title: 'Cheap day ready 💸',
-          body: `${movie.title} is now in its cheap pricing window.`,
+          body: daysUntil > 0
+            ? `${movie.title} hits cheap-day pricing in ${daysUntil} day${daysUntil === 1 ? '' : 's'}.`
+            : `${movie.title} is now in its cheap pricing window.`,
         });
       }
     }
+  }
+
+  // Announcement tracking: for movies added as "notify me when a date is
+  // announced", re-query TMDB (using the stored read-only token) to see if a
+  // firm date now exists. This is the reason the token is stored server-side —
+  // the phone isn't involved, so the job has to ask TMDB itself.
+  const announceMovies = watchlist.filter(
+    (m) => m.mode === 'announce' && !m.watched && !notified[`${m.id}-announced`]
+  );
+  if (announceMovies.length && tmdbToken) {
+    await Promise.all(
+      announceMovies.map(async (movie) => {
+        try {
+          const res = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}?language=en`, {
+            headers: { Authorization: `Bearer ${tmdbToken}`, accept: 'application/json' },
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          // A date is considered "announced" once the film is locked into post
+          // production (or already out) AND has a concrete release_date.
+          const firm =
+            (data.status === 'Post Production' || data.status === 'Released') && !!data.release_date;
+          if (firm) {
+            const when = new Date(data.release_date + 'T00:00:00').toLocaleDateString('en-US', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            });
+            toSend.push({
+              key: `${movie.id}-announced`,
+              title: 'Release date announced 📅',
+              body: `${movie.title} is set for ${when}. Open CineWatch to start tracking it.`,
+            });
+          }
+        } catch (e) {
+          console.error('Announce check failed for', movie.id, e.message);
+        }
+      })
+    );
+  } else if (announceMovies.length && !tmdbToken) {
+    console.warn('Announce-mode movies present but no tmdbToken stored; skipping announcement checks.');
   }
 
   for (const item of toSend) {
