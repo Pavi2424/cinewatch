@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es-EC">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -253,7 +253,13 @@
   .pick-btn.announce-pick:active, .pick-btn.announce-pick.chosen{background:var(--jade); border-color:var(--jade); color:var(--bg);}
   .movie-date.tbd{color:var(--muted);}
   .status-pill.announce{background:none; border:1px solid var(--jade); color:var(--jade);}
+  .status-pill.streaming{background:var(--cream); color:var(--bg);}
   .stub.tappable .stub-title, .stub.tappable .stub-poster{cursor:pointer;}
+  .watched-btn{
+    margin-top:8px; background:none; border:1px solid var(--jade); color:var(--jade);
+    font-family:'Inter'; font-weight:600; font-size:11px; padding:6px 10px; border-radius:7px; cursor:pointer;
+  }
+  .watched-btn:active{background:var(--jade); color:var(--bg);}
 
   /* ---------- Sort control ---------- */
   .sort-row{display:flex; align-items:center; gap:8px; margin-bottom:2px;}
@@ -315,7 +321,6 @@
   <nav class="tabs">
     <button class="active" data-tab="discover">Discover</button>
     <button data-tab="mylist">My List <span class="badge-count" id="listCount" style="display:none;"></span></button>
-    <button data-tab="settings">Settings</button>
   </nav>
 </header>
 
@@ -400,6 +405,7 @@ const DEFAULT_SETTINGS = {
   releaseNotifyLead: 0,  // notify this many days BEFORE the release date (0 = on the day)
   cheapNotifyLead: 0     // notify this many days BEFORE cheap day (0 = on the day)
 };
+const STREAMING_WAIT_DAYS = 30; // this many days after release, a tracked movie is assumed to be leaving theaters → "Waiting for streaming"
 
 /* ============== State ============== */
 let watchlist = JSON.parse(localStorage.getItem(STORAGE_KEYS.list) || '[]');
@@ -413,7 +419,7 @@ let searchResults = null;    // null = not searching; array = active search
 let activeTab = 'discover';
 const movieCache = {};       // id -> minimal movie fields, so add-to-list works from feed/search/detail
 
-// TMDB localizes `title` (es-EC gives "La Odisea"); `original_title` is the real one.
+// Prefer the real original title over any localized variant TMDB might return.
 function displayTitle(m){ return m.original_title || m.title; }
 function cacheMovie(m){
   movieCache[m.id] = { id:m.id, title:displayTitle(m), poster_path:m.poster_path, release_date:m.release_date || null };
@@ -435,7 +441,7 @@ function toast(msg){
 function daysBetween(a,b){ return Math.round((b-a)/86400000); }
 function fmtDate(iso){
   const d = new Date(iso+'T00:00:00');
-  return d.toLocaleDateString('es-EC', {day:'numeric', month:'short'});
+  return d.toLocaleDateString('en-US', {day:'numeric', month:'short'});
 }
 function todayISO(){ return new Date().toISOString().slice(0,10); }
 
@@ -460,11 +466,11 @@ async function tmdbFetch(path){
 
 function fmtDateLong(iso){
   const d = new Date(iso+'T00:00:00');
-  return d.toLocaleDateString('es-EC', {day:'numeric', month:'short', year:'numeric'});
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
 }
 // Card/detail date label — falls back gracefully for undated movies (search results
 // can include titles with no release_date).
-function cardDate(m){ return m.release_date ? fmtDateLong(m.release_date) : 'Sin fecha'; }
+function cardDate(m){ return m.release_date ? fmtDateLong(m.release_date) : 'No date'; }
 
 function discoverUrl(page){
   const today = todayISO();
@@ -472,7 +478,7 @@ function discoverUrl(page){
   // region=US + with_original_language=en gives big English-language releases with
   // US dates (our EC estimate); popularity.desc puts the blockbusters first.
   return `/discover/movie?region=US&with_release_type=2|3&release_date.gte=${today}&release_date.lte=${future}`
-       + `&sort_by=popularity.desc&with_original_language=en&language=es-EC&include_adult=false&page=${page}`;
+       + `&sort_by=popularity.desc&with_original_language=en&language=en-US&include_adult=false&page=${page}`;
 }
 
 // Fetch one TMDB page and append the usable results. Returns how many were added.
@@ -511,7 +517,7 @@ async function loadDiscoverBatch(target, maxPages){
 }
 
 async function fetchDiscover(){
-  if(!getToken()){ switchTab('settings'); return; }
+  if(!getToken()){ openSettings(); return; }
   updateDiscoverControls();
   discoverMovies = []; discoverPage = 0; discoverTotalPages = 1;
   document.getElementById('discoverView').innerHTML = `<div class="empty-state">Loading movies&hellip;</div>`;
@@ -519,7 +525,7 @@ async function fetchDiscover(){
     await loadDiscoverBatch(30, 6);
     renderDiscover();
   }catch(err){
-    if(err.status===401){ toast('Invalid TMDB key — check it in Settings'); switchTab('settings'); return; }
+    if(err.status===401){ toast('Invalid TMDB key — check it in Settings'); openSettings(); return; }
     toast('Could not load movies — check your connection');
     console.error(err);
   }
@@ -555,8 +561,13 @@ function tbdLabel(m){ return m.release_date ? m.release_date.slice(0,4) : 'N/D';
 async function fetchCarousel(){
   if(!getToken()) return;
   try{
-    const data = await tmdbFetch('/trending/movie/week?language=es-EC');
-    const movies = (data.results||[]).filter(m=>m.poster_path && m.original_language==='en').slice(0,15);
+    const data = await tmdbFetch('/trending/movie/week?language=en-US');
+    const today = todayISO();
+    // Trending, but only titles that haven't opened yet — once a movie airs it
+    // drops out of the carousel.
+    const movies = (data.results||[])
+      .filter(m=>m.poster_path && m.original_language==='en' && m.release_date && m.release_date >= today)
+      .slice(0,15);
     movies.forEach(cacheMovie);
     renderCarousel(movies);
   }catch(err){ console.warn('Carousel load failed', err); }
@@ -574,7 +585,7 @@ function renderCarousel(movies){
 }
 function updateCarouselVisibility(){
   const wrap = document.getElementById('carouselWrap');
-  const show = activeTab==='discover' && !!getToken() && searchResults===null && wrap.innerHTML.trim()!=='';
+  const show = activeTab==='discover' && !settingsOpen && !!getToken() && searchResults===null && wrap.innerHTML.trim()!=='';
   wrap.style.display = show ? '' : 'none';
 }
 
@@ -657,7 +668,7 @@ function onSearchInput(val){
 }
 async function runSearch(q){
   try{
-    const data = await tmdbFetch(`/search/movie?query=${encodeURIComponent(q)}&language=es-EC&include_adult=false`);
+    const data = await tmdbFetch(`/search/movie?query=${encodeURIComponent(q)}&language=en-US&include_adult=false`);
     searchResults = (data.results||[]).filter(m=>m.poster_path);
     searchResults.forEach(cacheMovie);
     renderDiscover();
@@ -675,14 +686,14 @@ function clearSearch(){
 async function openDetail(id){
   const modal = document.getElementById('detailModal');
   modal.style.display = 'flex';
-  modal.innerHTML = `<div class="modal-sheet"><div class="detail-loading">Cargando&hellip;</div></div>`;
+  modal.innerHTML = `<div class="modal-sheet"><div class="detail-loading">Loading&hellip;</div></div>`;
   document.body.style.overflow = 'hidden';
   try{
-    const m = await tmdbFetch(`/movie/${id}?append_to_response=credits&language=es-EC`);
+    const m = await tmdbFetch(`/movie/${id}?append_to_response=credits&language=en-US`);
     cacheMovie(m);
     renderDetailContent(m);
   }catch(err){
-    modal.innerHTML = `<div class="modal-sheet"><div class="detail-loading">No se pudieron cargar los detalles.<br><br><button class="chip" onclick="closeDetail()">Cerrar</button></div></div>`;
+    modal.innerHTML = `<div class="modal-sheet"><div class="detail-loading">Couldn't load details.<br><br><button class="chip" onclick="closeDetail()">Close</button></div></div>`;
     console.error(err);
   }
 }
@@ -710,7 +721,7 @@ function renderDetailContent(m){
       <div class="detail-body">
         <div class="detail-title">${displayTitle(m)}</div>
         <div class="detail-meta">${metaBits}</div>
-        <div class="detail-sub">${director?`<b>Dir.</b> ${director.name}`:''}${director&&cast?' &middot; ':''}${cast?`<b>Reparto</b> ${cast}`:''}</div>
+        <div class="detail-sub">${director?`<b>Dir.</b> ${director.name}`:''}${director&&cast?' &middot; ':''}${cast?`<b>Cast</b> ${cast}`:''}</div>
         <div class="detail-overview">${m.overview || 'No synopsis available.'}</div>
         <div class="detail-actions">${actions}</div>
       </div>
@@ -723,7 +734,7 @@ function closeDetail(){
 window.closeDetail = closeDetail;
 
 function updateDiscoverControls(){
-  const show = activeTab==='discover' && !!getToken();
+  const show = activeTab==='discover' && !settingsOpen && !!getToken();
   document.getElementById('discoverControls').style.display = show ? '' : 'none';
   updateCarouselVisibility();
 }
@@ -754,19 +765,31 @@ window.addToList = function(tmdbId, mode){
 function renderMyList(){
   const el = document.getElementById('mylistView');
   const countEl = document.getElementById('listCount');
-  countEl.style.display = watchlist.length ? 'inline-block' : 'none';
-  countEl.textContent = watchlist.length;
+  const active = watchlist.filter(w=>!w.watched);
+  countEl.style.display = active.length ? 'inline-block' : 'none';
+  countEl.textContent = active.length;
 
-  if(!watchlist.length){
+  if(!active.length){
     el.innerHTML = `<div class="empty-state"><strong>Your list is empty</strong>Go to Discover and pick movies you want to track.</div>`;
     return;
   }
 
   const today = new Date(todayISO()+'T00:00:00');
-  const announce = watchlist.filter(w=>w.mode==='announce');
-  const dated = watchlist.filter(w=>w.mode!=='announce');
-  const items = dated.map(w=>{
+  const announce = active.filter(w=>w.mode==='announce');
+  const dated = active.filter(w=>w.mode!=='announce');
+
+  const streaming = [];
+  const items = [];
+  for(const w of dated){
     const release = new Date(w.release_date+'T00:00:00');
+    const streamingDate = new Date(release.getTime() + STREAMING_WAIT_DAYS*86400000);
+    // Once a movie is 30+ days past release it's assumed to be leaving theaters —
+    // its release/cheap-day status no longer applies, so it moves to "Waiting for
+    // streaming" at the top until you mark it watched or remove it.
+    if(daysBetween(today, streamingDate) <= 0){
+      streaming.push({ w, sortKey: release.getTime() });
+      continue;
+    }
     const cheapDate = new Date(release.getTime() + settings.cheapWaitDays*86400000);
     let status, days, pillClass, sortKey;
     if(w.mode==='release'){
@@ -781,13 +804,18 @@ function renderMyList(){
       else { status='Wait for cheap'; pillClass='waiting'; }
       sortKey = cheapDate.getTime();
     }
-    return { w, status, days, pillClass, sortKey };
-  }).sort((a,b)=>a.sortKey-b.sortKey);
+    items.push({ w, status, days, pillClass, sortKey });
+  }
+  items.sort((a,b)=>a.sortKey-b.sortKey);
+  streaming.sort((a,b)=>a.sortKey-b.sortKey);
 
   const ready = items.filter(i=>i.pillClass==='ready' || i.pillClass==='today');
   const waiting = items.filter(i=>!(i.pillClass==='ready' || i.pillClass==='today'));
 
   let html = '';
+  if(streaming.length){
+    html += '<div class="section-label">Waiting for streaming</div>' + streaming.map(i=>renderStreamingStub(i.w)).join('');
+  }
   if(ready.length){
     html += '<div class="section-label">Ready now</div>' + ready.map(renderStub).join('');
   }
@@ -799,6 +827,32 @@ function renderMyList(){
   }
   el.innerHTML = html;
 }
+
+function renderStreamingStub(w){
+  return `
+  <div class="stub tappable">
+    <div class="stub-poster" style="background-image:url('${w.poster_path?TMDB_IMG+w.poster_path:''}')" onclick="openDetail(${w.id})"></div>
+    <div class="stub-body">
+      <div class="stub-title" onclick="openDetail(${w.id})">${w.title}</div>
+      <div class="stub-meta">Released ${fmtDate(w.release_date)} &middot; likely streaming soon</div>
+      <button class="watched-btn" onclick="markWatched(${w.id})">&#10003; Mark watched</button>
+    </div>
+    <div class="stub-tear"></div>
+    <div class="stub-status">
+      <span class="status-pill streaming">Streaming</span>
+    </div>
+    <button class="stub-remove" onclick="removeFromList(${w.id})" aria-label="Remove">&times;</button>
+  </div>`;
+}
+
+window.markWatched = function(id){
+  const w = watchlist.find(x=>x.id===id);
+  if(w) w.watched = true;
+  saveWatchlist();
+  renderMyList();
+  renderDiscover();
+  toast('Marked as watched');
+};
 
 function renderAnnounceStub(w){
   return `
@@ -844,25 +898,33 @@ window.removeFromList = function(id){
   toast('Removed from your list');
 };
 
-/* ============== Tabs ============== */
+/* ============== Tabs + Settings overlay ============== */
+let settingsOpen = false;
 function switchTab(tab){
   activeTab = tab;
+  settingsOpen = false;
   document.querySelectorAll('nav.tabs button').forEach(b=>{
     b.classList.toggle('active', b.dataset.tab === tab);
   });
   document.getElementById('discoverView').style.display = tab==='discover' ? '' : 'none';
   document.getElementById('mylistView').style.display   = tab==='mylist'   ? '' : 'none';
-  document.getElementById('settingsView').style.display = tab==='settings' ? '' : 'none';
-  if(tab==='settings') renderSettings();
+  document.getElementById('settingsView').style.display = 'none';
   updateDiscoverControls();
+}
+// Settings is reached from the gear button, not a tab — it overlays the current view.
+function openSettings(){
+  settingsOpen = true;
+  document.getElementById('discoverView').style.display = 'none';
+  document.getElementById('mylistView').style.display = 'none';
+  document.getElementById('settingsView').style.display = '';
+  renderSettings();
+  updateDiscoverControls();
+  window.scrollTo({top:0, behavior:'smooth'});
 }
 document.querySelectorAll('nav.tabs button').forEach(btn=>{
   btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
 });
-document.getElementById('settingsBtn').addEventListener('click', ()=>{
-  switchTab('settings');
-  window.scrollTo({top:0, behavior:'smooth'});
-});
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
 
 /* ============== Search + sort + modal wiring ============== */
 document.getElementById('searchInput').addEventListener('input', (e)=> onSearchInput(e.target.value));
@@ -884,7 +946,7 @@ function renderSettings(){
 function refreshMarqueeSub(){
   const d = settings.cheapWaitDays;
   document.getElementById('marqueeSub').textContent =
-    `Quito · cheap day ${d} día${d===1?'':'s'} después`;
+    `Quito · cheap day ${d} day${d===1?'':'s'} after release`;
 }
 function saveSettings(){
   localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
@@ -1015,7 +1077,7 @@ if(getToken()){
   fetchDiscover();
   fetchCarousel();
 }else{
-  switchTab('settings'); // first run — no key yet
+  openSettings(); // first run — no key yet
 }
 renderMyList();
 refreshPushBanner();

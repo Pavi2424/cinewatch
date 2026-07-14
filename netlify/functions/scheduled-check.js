@@ -20,7 +20,7 @@ function daysBetween(a, b) {
   return Math.round((b - a) / 86400000);
 }
 
-exports.handler = async () => {
+exports.handler = async (event) => {
   const store = getStore({
     name: 'cinewatch-state',
     siteID: process.env.NETLIFY_BLOBS_SITE_ID,
@@ -30,6 +30,27 @@ exports.handler = async () => {
 
   if (!state || !state.subscription || !state.watchlist) {
     return { statusCode: 200, body: 'No state to check yet' };
+  }
+
+  // Manual test hook: GET .../scheduled-check?test=1 sends one push to the stored
+  // subscription to confirm the pipeline end-to-end, without waiting for a real
+  // threshold and without touching the watchlist or notification history.
+  const isTest = event && event.queryStringParameters && event.queryStringParameters.test === '1';
+  if (isTest) {
+    try {
+      await webpush.sendNotification(
+        state.subscription,
+        JSON.stringify({
+          title: 'CineWatch test 🍿',
+          body: "Push notifications are working — you're all set.",
+          url: '/',
+          tag: 'cinewatch-test',
+        })
+      );
+      return { statusCode: 200, body: 'Test notification sent' };
+    } catch (err) {
+      return { statusCode: 500, body: 'Test push failed: ' + (err.statusCode || err.message) };
+    }
   }
 
   const {
