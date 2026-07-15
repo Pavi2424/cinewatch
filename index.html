@@ -561,13 +561,24 @@ function tbdLabel(m){ return m.release_date ? m.release_date.slice(0,4) : 'N/D';
 async function fetchCarousel(){
   if(!getToken()) return;
   try{
-    const data = await tmdbFetch('/trending/movie/week?language=en-US');
     const today = todayISO();
-    // Trending, but only titles that haven't opened yet — once a movie airs it
-    // drops out of the carousel.
-    const movies = (data.results||[])
-      .filter(m=>m.poster_path && m.original_language==='en' && m.release_date && m.release_date >= today)
-      .slice(0,15);
+    // /trending is mostly films already in theaters, so filtering to unaired
+    // leaves very few. Lead with trending-and-upcoming, then top up from the most
+    // popular upcoming releases so we reliably show 10 not-yet-aired movies.
+    const [trend, popular] = await Promise.all([
+      tmdbFetch('/trending/movie/week?language=en-US').catch(()=>({ results:[] })),
+      tmdbFetch(discoverUrl(1)).catch(()=>({ results:[] }))
+    ]);
+    const seen = new Set();
+    const movies = [];
+    for(const m of [...(trend.results||[]), ...(popular.results||[])]){
+      if(!m.poster_path || m.original_language !== 'en') continue;
+      if(!m.release_date || m.release_date < today) continue; // upcoming only
+      if(seen.has(m.id)) continue;
+      seen.add(m.id);
+      movies.push(m);
+      if(movies.length >= 10) break;
+    }
     movies.forEach(cacheMovie);
     renderCarousel(movies);
   }catch(err){ console.warn('Carousel load failed', err); }
