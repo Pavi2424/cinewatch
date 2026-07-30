@@ -1,0 +1,19 @@
+name: Daily notification check
+
+# Pings the CineWatch run-check endpoint once a day so notifications fire even if
+# Netlify's own scheduled-function cron doesn't run. run-check is idempotent (each
+# alert is sent at most once), so it's safe to run alongside the Netlify schedule.
+on:
+  schedule:
+    - cron: '0 14 * * *' # 14:00 UTC = 9:00 AM Ecuador time (EC is fixed UTC-5, no DST)
+  workflow_dispatch: {}    # lets you trigger it manually from the Actions tab
+
+jobs:
+  run-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger run-check
+        run: |
+          echo "Calling run-check at $(date -u) ..."
+          response=$(curl -fsS -w "\nHTTP %{http_code}" "https://cinewatchec.netlify.app/.netlify/functions/run-check")
+          echo "$response"
