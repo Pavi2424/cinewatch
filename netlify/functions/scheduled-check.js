@@ -53,6 +53,31 @@ exports.handler = async (event) => {
     }
   }
 
+  // Read-only diagnostic: GET .../scheduled-check?debug=1 dumps stored state
+  // (no subscription secret) so we can see settings, notified history, and the
+  // last run time. Used to diagnose missed notifications.
+  const isDebug = event && event.queryStringParameters && event.queryStringParameters.debug === '1';
+  if (isDebug) {
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        now: new Date().toISOString(),
+        lastCheckedAt: state.lastCheckedAt || null,
+        hasSubscription: !!state.subscription,
+        settings: {
+          cheapWaitDays: state.cheapWaitDays,
+          releaseNotifyLead: state.releaseNotifyLead,
+          cheapNotifyLead: state.cheapNotifyLead,
+        },
+        notified: Object.keys(state.notified || {}),
+        watchlist: (state.watchlist || []).map((m) => ({
+          id: m.id, title: m.title, mode: m.mode, release_date: m.release_date, watched: !!m.watched,
+        })),
+      }, null, 2),
+    };
+  }
+
   const {
     subscription,
     watchlist,

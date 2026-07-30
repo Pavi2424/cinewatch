@@ -1058,6 +1058,28 @@ async function syncToServer(subscriptionOverride){
   }catch(err){ console.warn('Sync to server failed', err); }
 }
 
+// One-time fix: watchlist entries added before the English switch stored the
+// localized (Spanish) title. original_title is language-independent, so a single
+// fetch per movie refreshes them permanently — and re-syncs so the daily job's
+// notification text is English too.
+async function migrateWatchlistTitles(){
+  if(!getToken() || !watchlist.length) return;
+  if(localStorage.getItem('cw_titles_v') === '2') return;
+  try{
+    await Promise.all(watchlist.map(async (w)=>{
+      try{
+        const m = await tmdbFetch(`/movie/${w.id}?language=en-US`);
+        const t = m.original_title || m.title;
+        if(t) w.title = t;
+      }catch(e){ /* leave this one as-is */ }
+    }));
+    localStorage.setItem(STORAGE_KEYS.list, JSON.stringify(watchlist));
+    localStorage.setItem('cw_titles_v', '2');
+    syncToServer();
+    renderMyList();
+  }catch(e){ console.warn('Title migration failed', e); }
+}
+
 // Push enable banner
 function refreshPushBanner(){
   const banner = document.getElementById('pushBanner');
@@ -1091,6 +1113,7 @@ if(getToken()){
   openSettings(); // first run — no key yet
 }
 renderMyList();
+migrateWatchlistTitles();
 refreshPushBanner();
 </script>
 </body>
