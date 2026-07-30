@@ -2,11 +2,15 @@
   publish = "."
   functions = "netlify/functions"
 
+# Register the daily cron for scheduled-check explicitly here. The in-code
+# `exports.config = { schedule }` was not being registered by Netlify (the
+# function ran only when triggered manually), so we declare it in config too.
+# 0 14 * * * = 14:00 UTC = 9:00 AM Ecuador time (EC is fixed UTC-5, no DST).
+[functions."scheduled-check"]
+  schedule = "0 14 * * *"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   force = false
-
-# Scheduled functions are declared via `exports.config = { schedule: ... }`
-# inside scheduled-check.js — Netlify picks this up automatically on deploy.

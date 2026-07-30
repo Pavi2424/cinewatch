@@ -195,6 +195,6 @@ exports.handler = async (event) => {
   };
 };
 
-exports.config = {
-  schedule: '0 14 * * *' // 14:00 UTC = 9:00 AM Ecuador time (EC has no DST, fixed UTC-5)
-};
+// The daily schedule is declared in netlify.toml ([functions."scheduled-check"]).
+// This function stays HTTP-invokable too (for manual runs and the ?test / ?debug
+// hooks above).
