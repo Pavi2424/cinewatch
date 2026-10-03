@@ -334,8 +334,14 @@ This is the hard-won knowledge. If something breaks, check here first.
 - **Single-user, no auth** — intentional. All state under one Blobs key `primary-user`.
 - **iOS push only works** for the app installed to the Home Screen via Safari (iOS
   16.4+), never in a browser tab. `manifest.json` must keep `display:standalone`.
-- **GitHub Actions scheduled workflows pause after ~60 days of repo inactivity.** If
-  notifications ever stop, open the Actions tab and re-enable, or push any commit.
+- **GitHub Actions scheduled workflows pause after ~60 days of repo inactivity.** This
+  actually happened on 2026-09-28. `daily-check.yml` now has a "Keep workflow alive"
+  step that re-enables itself via the API on every run, resetting the timer. If
+  notifications ever stop anyway, open the Actions tab and re-enable.
+- **Blobs token can expire.** On 2026-10-03 `?debug=1` returned `BlobsInternalError 401`
+  (expired `NETLIFY_BLOBS_TOKEN`). Fix: new Netlify personal access token → update the
+  env var → Trigger deploy. Phone syncs fail silently meanwhile, so re-tap "Enable
+  notifications" afterwards to re-sync.
 - **GitHub Actions cron can be delayed** (minutes) under load — fine for a daily job.
 - **Everything must stay on free tiers** — flag anything that risks that.
 - **US dates are an estimate** for Ecuador; actual local release can lag or never happen.

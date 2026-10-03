@@ -8,10 +8,22 @@ on:
     - cron: '0 14 * * *' # 14:00 UTC = 9:00 AM Ecuador time (EC is fixed UTC-5, no DST)
   workflow_dispatch: {}    # lets you trigger it manually from the Actions tab
 
+# actions:write lets the keep-alive step below re-enable this workflow via the API.
+permissions:
+  actions: write
+
 jobs:
   run-check:
     runs-on: ubuntu-latest
     steps:
+      # GitHub auto-disables scheduled workflows after 60 days without repo activity
+      # (this happened on 2026-09-28 and notifications silently stopped). Re-enabling
+      # the workflow via the API on every run resets that inactivity timer.
+      - name: Keep workflow alive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/daily-check.yml/enable"
+
       - name: Trigger run-check
         run: |
           echo "Calling run-check at $(date -u) ..."
