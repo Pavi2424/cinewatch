@@ -7,3 +7,4 @@ node_modules/
 # Secrets carried by hand for migration — NEVER commit (repo is public)
 MIGRATION-SECRETS.local.md
 *.secrets.local.md
+*.local.md
