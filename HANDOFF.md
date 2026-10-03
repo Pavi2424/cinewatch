@@ -7,7 +7,8 @@
 > `MIGRATION-SECRETS.local.md`, which is gitignored and must be carried over
 > manually (see "Secrets" below).
 
-Last updated: 2026-10-03. Current HEAD when written: `cc9d917`.
+Last updated: 2026-10-03. Current HEAD when written: `081902c` (the two commits after
+`cc9d917` are this handoff and its `.gitignore` entry — no app code changed).
 
 ---
 
@@ -362,3 +363,15 @@ closed.
 ### Sibling projects (same user, same pattern — personal Netlify PWAs with push)
 Shelf reading app (book tracker), Tally (personal finance), Album Poster Studio. Not part
 of this repo, but the deploy/push/SW-cache lessons transfer directly.
+
+**Tally now has its own `HANDOFF.md`** in `Notes/Project Finance/tally-scaffold`
+(repo `Pavi2424/tally`, private). `Notes/MIGRATION-START-HERE.md` indexes both. Two
+findings from Tally apply here and are **not yet fixed in CineWatch**:
+
+- **Stale push subscriptions.** `enablePush()` here does
+  `getSubscription()` and only subscribes if absent. A subscription left from a previous
+  install keeps being accepted by Apple (200) while delivering nothing — indistinguishable
+  from success server-side. Fix: always unsubscribe then re-subscribe on an explicit tap,
+  and add a "re-register this device" button so it is recoverable from the phone.
+- Netlify Blobs needing both `NETLIFY_BLOBS_*` vars is the same story as bug #6 here —
+  confirmed again on a fresh site, so it is an account-wide trait, not a one-off.
